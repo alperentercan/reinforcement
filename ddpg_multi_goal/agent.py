@@ -222,27 +222,27 @@ class DDPG(object):
 #         self.a = a
 #         return a
     
-    def update_policy_calismiyor_aq(self):
+#     def update_policy(self):
 
-        bobs,bact,br,bobs2,bd = self.buffer.sample_split_batch(self.minibatch_size_for_replay)
-        bdc = np.abs(bd-1)
-        target_critic_input = torch.cat([bobs2, self.target_actor(bobs2)],dim=1)#*self.action_space_range
-        Z = self.target_critic(target_critic_input)
-        Y = br + self.discount*bdc*Z
+#         bobs,bact,br,bobs2,bd = self.buffer.sample_split_batch(self.minibatch_size_for_replay)
+#         bdc = np.abs(bd-1)
+#         target_critic_input = torch.cat([bobs2, self.target_actor(bobs2)],dim=1)#*self.action_space_range
+#         Z = self.target_critic(target_critic_input)
+#         Y = br + self.discount*bdc*Z
 
-        # Update Critic
-        self.critic.zero_grad()
-        pred = self.critic(torch.cat([bobs,bact],dim=1))
-        loss_critic = self.loss_func(pred,Y)
-        loss_critic.backward()
-        self.optim_critic.step()
+#         # Update Critic
+#         self.critic.zero_grad()
+#         pred = self.critic(torch.cat([bobs,bact],dim=1))
+#         loss_critic = self.loss_func(pred,Y)
+#         loss_critic.backward()
+#         self.optim_critic.step()
 
-         # Update Actor
-        self.actor.zero_grad()
-        actor_loss = -self.critic(torch.cat([bobs,self.actor(bobs)],dim=1)).mean()#*self.action_space_range
-        actor_loss.backward()             
-        self.optim_actor.step()  
-        self.soft_update()
+#          # Update Actor
+#         self.actor.zero_grad()
+#         actor_loss = -self.critic(torch.cat([bobs,self.actor(bobs)],dim=1)).mean()#*self.action_space_range
+#         actor_loss.backward()             
+#         self.optim_actor.step()  
+#         self.soft_update()
         
     ### From DDPG IMPLEMENTATION
     def update_policy(self):

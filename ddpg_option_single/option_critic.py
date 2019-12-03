@@ -7,8 +7,8 @@ from util import *
 # from util import to_tensor
 # from util import hard_update
 from random_process import OrnsteinUhlenbeckProcess
-from memory import SequentialMemory
-from model import (Actor, Critic)
+# from memory import SequentialMemory
+# from model import (Actor, Critic)
 criterion = nn.MSELoss()
 
 
@@ -201,7 +201,6 @@ class Option_critic(object):
     def select_action(self, s_t, decay_epsilon=True):
 #         if self.w_t == None:
 #             if np.random.uniform() > self.epsilon_option:
-#                 print('noluyor aga')
 #                 option_qs = [self.qintra(torch.cat([to_tensor(np.append(s_t,w)),#s_t,
 # #                                                    w,
 #                                                    self.actor(to_tensor(np.append(s_t,w)))])) for w in range(self.nb_options)] 
@@ -234,7 +233,7 @@ class Option_critic(object):
 
         if decay_epsilon:
             self.epsilon -= self.depsilon
-        print(f"State {s_t}, old option was {old_option}, new option is {self.w_t} and the action is {action}")
+#         print(f"State {s_t}, old option was {old_option}, new option is {self.w_t} and the action is {action}")
         self.a_t = action
         return action
     
