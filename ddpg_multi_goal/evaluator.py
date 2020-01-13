@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import savemat
+from gym import wrappers
 
 from util import *
 
@@ -39,8 +40,8 @@ class Evaluator(object):
                 if self.max_episode_length and episode_steps >= self.max_episode_length -1:
                     done = True
                 
-#                 if visualize:
-#                     env.render(mode='human')
+                if visualize:
+                    env.render(mode='human')
 
                 # update
                 episode_reward += reward
@@ -62,9 +63,9 @@ class Evaluator(object):
         error=np.std(self.results, axis=0)
                     
         x = range(0,self.results.shape[1]*self.interval,self.interval)
-#         fig, ax = plt.subplots(1, 1, figsize=(6, 5))
-#         plt.xlabel('Timestep')
-#         plt.ylabel('Average Reward')
-#         ax.errorbar(x, y, yerr=error, fmt='-o')
-#         plt.savefig(fn+'.png')
-#         savemat(fn+'.mat', {'reward':self.results})
+        fig, ax = plt.subplots(1, 1, figsize=(6, 5))
+        plt.xlabel('Timestep')
+        plt.ylabel('Average Reward')
+        ax.errorbar(x, y, yerr=error, fmt='-o')
+        plt.savefig(fn+'.png')
+        savemat(fn+'.mat', {'reward':self.results})

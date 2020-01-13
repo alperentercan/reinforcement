@@ -23,7 +23,7 @@ class Evaluator(object):
         for episode in range(self.num_episodes):
 
             # reset at the start of episode
-            env.close()
+#             env.close()
             observation = env.reset()
             episode_steps = 0
             episode_reward = 0.
@@ -69,4 +69,3 @@ class Evaluator(object):
         ax.errorbar(x, y, yerr=error, fmt='-o')
         plt.savefig(fn+'.png')
         savemat(fn+'.mat', {'reward':self.results})
-        plt.close()

@@ -23,13 +23,6 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
     episode_reward = 0.
     observation = None
     while step < num_iterations:
-        
-        # [optional] evaluate
-        if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
-            policy = lambda x: agent.select_action(x, decay_epsilon=False)
-            validate_reward = evaluate(env, policy, debug=False, visualize=True)
-            if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
-                
         # reset if it is the start of episode
         if observation is None:
             observation = deepcopy(env.reset())
@@ -52,11 +45,11 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
         if step > args.warmup :
             agent.update_policy()
         
-#         # [optional] evaluate
-#         if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
-#             policy = lambda x: agent.select_action(x, decay_epsilon=False)
-#             validate_reward = evaluate(env, policy, debug=False, visualize=False)
-#             if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
+        # [optional] evaluate
+        if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
+            policy = lambda x: agent.select_action(x, decay_epsilon=False)
+            validate_reward = evaluate(env, policy, debug=False, visualize=False)
+            if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
 
         # [optional] save intermideate model
         if step % int(num_iterations/3) == 0:
@@ -106,7 +99,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--mode', default='train', type=str, help='support option: train/test')
     parser.add_argument('--goal', default='single', type=str, help='support option: single/multi')
-    parser.add_argument('--env', default='HalfCheetah-v2', type=str, help='open-ai gym environment')
+    parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--hidden1', default=400, type=int, help='hidden num of first fully connect layer')
     parser.add_argument('--hidden2', default=300, type=int, help='hidden num of second fully connect layer')
     parser.add_argument('--arch_cr', default=[300,200], type=list, help='Critic Architecture')
@@ -137,7 +130,6 @@ if __name__ == "__main__":
     parser.add_argument('--resume', default='default', type=str, help='Resuming model path for testing')
     # parser.add_argument('--l2norm', default=0.01, type=float, help='l2 weight decay') # TODO
     # parser.add_argument('--cuda', dest='cuda', action='store_true') # TODO
-    parser.add_argument('--name', default='', type=str, help='Name for videos')
 
     args = parser.parse_args()
     args.output = get_output_folder(args.output, args.env)
@@ -146,8 +138,6 @@ if __name__ == "__main__":
 
 #     env = NormalizedEnv(gym.make(args.env))
     env = gym.make(args.env)
-    env = gym.wrappers.Monitor(env, './videos/' + args.env + '_' + args.name + '/',force=True)
-
     if args.seed > 0:
         np.random.seed(args.seed)
         env.seed(args.seed)
@@ -155,7 +145,7 @@ if __name__ == "__main__":
     nb_states = env.observation_space.shape[0]
     nb_actions = env.action_space.shape[0]
 
-    agent = Option_critic(nb_states,nb_actions,6,args)
+    agent = Option_critic(nb_states,nb_actions,4,args)
 #     agent = DDPG(nb_states, nb_actions, args)
 #     agent = DDPG(nb_states, nb_actions, args)
     evaluate = Evaluator(args.validate_episodes, 

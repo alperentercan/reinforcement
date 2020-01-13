@@ -199,16 +199,17 @@ class Option_critic(object):
     
   
     def select_action(self, s_t, decay_epsilon=True):
-        if self.w_t == None:
-            if np.random.uniform() > self.epsilon_option:
-                option_qs = [self.qintra(torch.cat([to_tensor(np.append(s_t,w)),#s_t,
-#                                                    w,
-                                                   self.actor(to_tensor(np.append(s_t,w)))])) for w in range(self.nb_options)] 
-#                                                    self.actor(torch.cat([s_t,w],dim=1))],dim=1)) for w in range(self.nb_options)] 
-                ind = range(self.nb_options)
-                self.w_t = max(ind,key=lambda x:option_qs[x])
-            else:
-                self.w_t = np.random.randint(self.nb_options)
+#         if self.w_t == None:
+#             if np.random.uniform() > self.epsilon_option:
+#                 option_qs = [self.qintra(torch.cat([to_tensor(np.append(s_t,w)),#s_t,
+# #                                                    w,
+#                                                    self.actor(to_tensor(np.append(s_t,w)))])) for w in range(self.nb_options)] 
+# #                                                    self.actor(torch.cat([s_t,w],dim=1))],dim=1)) for w in range(self.nb_options)] 
+#                 ind = range(self.nb_options)
+#                 self.w_t = max(ind,key=lambda x:option_qs[x])
+#             else:
+#                 self.w_t = np.random.randint(self.nb_options)
+#         else:
         old_option = self.w_t
         if self.terminate(to_tensor(np.append(s_t,self.w_t))) == 1:
             if np.random.uniform() > self.epsilon_option:
@@ -220,9 +221,9 @@ class Option_critic(object):
                 self.w_t = max(ind,key=lambda x:option_qs[x])
             else:
                 self.w_t = np.random.randint(self.nb_options)
+        
         action = to_numpy(
-            self.actor(to_tensor(np.append(s_t,self.w_t))))#.squeeze(0) 
-#         print(action.shape)
+            self.actor(to_tensor(np.append(s_t,self.w_t)))).squeeze(0)        
 #         action = to_numpy(
 #             self.actor(torch.cat([to_tensor(np.array([s_t])),
 #                                   torch.tensor([self.w_t],dtype=torch.float)],dim=1))).squeeze(0)

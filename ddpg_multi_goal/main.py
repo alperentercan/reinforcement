@@ -10,8 +10,14 @@ import gym
 # from normalized_env import NormalizedEnv
 from evaluator import Evaluator
 # from ddpg import DDPG
-from agent import DDPG
+# from agent import DDPG
 import multigoal_agent
+# import ddpg
+# import agent
+# import agent_exp
+import multigoal_agent_fm
+import multigoal_agent_exp
+
 from util import *
 
 # gym.undo_logger_setup()
@@ -24,6 +30,13 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
     observation = None
     while step < num_iterations:
         # reset if it is the start of episode
+        if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
+            agent.is_training = False
+            policy = lambda x: agent.select_action(x, decay_epsilon=False)
+            validate_reward = evaluate(env, policy, debug=False, visualize=False)
+            if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
+            agent.is_training = True
+            
         if observation is None:
             observation = deepcopy(env.reset())
             agent.reset(observation)
@@ -55,12 +68,12 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
             agent.update_policy()
         
         # [optional] evaluate
-        if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
-            agent.is_training = False
-            policy = lambda x: agent.select_action(x, decay_epsilon=False)
-            validate_reward = evaluate(env, policy, debug=False, visualize=False)
-            if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
-            agent.is_training = True
+#         if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
+#             agent.is_training = False
+#             policy = lambda x: agent.select_action(x, decay_epsilon=False)
+#             validate_reward = evaluate(env, policy, debug=False, visualize=False)
+#             if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
+#             agent.is_training = True
 
         # [optional] save intermideate model
         if step % int(num_iterations/3) == 0:
@@ -111,6 +124,8 @@ if __name__ == "__main__":
     parser.add_argument('--mode', default='train', type=str, help='support option: train/test')
     parser.add_argument('--goal', default='multi', type=str, help='support option: single/multi')
     parser.add_argument('--env', default='FetchReach-v1', type=str, help='open-ai gym environment')
+    parser.add_argument('--alg', default='DDPG', type=str, help='algorithm to be used')
+    parser.add_argument('--note', default='no note', type=str, help='note for the records')
     parser.add_argument('--hidden1', default=400, type=int, help='hidden num of first fully connect layer')
     parser.add_argument('--hidden2', default=300, type=int, help='hidden num of second fully connect layer')
     parser.add_argument('--arch_cr', default=[300,200], type=list, help='Critic Architecture')
@@ -139,6 +154,8 @@ if __name__ == "__main__":
     parser.add_argument('--epsilon', default=500000, type=int, help='linear decay of exploration policy')
     parser.add_argument('--seed', default=-1, type=int, help='')
     parser.add_argument('--resume', default='default', type=str, help='Resuming model path for testing')
+    parser.add_argument('--name', default='', type=str, help='Name for videos')
+
     # parser.add_argument('--l2norm', default=0.01, type=float, help='l2 weight decay') # TODO
     # parser.add_argument('--cuda', dest='cuda', action='store_true') # TODO
 
@@ -149,6 +166,8 @@ if __name__ == "__main__":
 
 #     env = NormalizedEnv(gym.make(args.env))
     env = gym.make(args.env)
+    env = gym.wrappers.Monitor(env, './videos/' + args.env + '_' + args.name + '/',force=True)
+
 #     env.env.reward_type='dense'
     print(env)
 
@@ -163,7 +182,16 @@ if __name__ == "__main__":
     if args.goal == 'multi':
         nb_states = env.observation_space['observation'].shape[0]        
         nb_goal = env.observation_space['desired_goal'].shape[0]
-        agent = multigoal_agent.DDPG(nb_states, nb_actions,nb_goal, args)
+        if args.alg == 'ddpg':
+            print("DDPG is active")
+            agent = multigoal_agent.DDPG(nb_states, nb_actions,nb_goal, args)
+        elif args.alg == 'fm':
+            print("DDPG_FM is active")
+            agent = multigoal_agent_fm.DDPG(nb_states, nb_actions,nb_goal, args)
+        elif args.alg == 'exp':
+            print("DDPG Experimental is active")
+            agent = multigoal_agent_exp.DDPG(nb_states, nb_actions,nb_goal, args)            
+            
     else:
         nb_states = env.observation_space.shape[0]
         agent = DDPG(nb_states, nb_actions, args)

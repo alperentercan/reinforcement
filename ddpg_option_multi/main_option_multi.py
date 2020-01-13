@@ -10,7 +10,8 @@ import gym
 #from normalized_env import NormalizedEnv
 from evaluator import Evaluator
 # from ddpg import DDPG
-from option_critic import Option_critic
+# from option_critic import Option_critic
+from option_critic_multi import Option_critic 
 # from agent import DDPG
 from util import *
 
@@ -23,8 +24,8 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
     episode_reward = 0.
     observation = None
     while step < num_iterations:
-        
-        # [optional] evaluate
+               
+          # [optional] evaluate
         if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
             policy = lambda x: agent.select_action(x, decay_epsilon=False)
             validate_reward = evaluate(env, policy, debug=False, visualize=True)
@@ -32,6 +33,7 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
                 
         # reset if it is the start of episode
         if observation is None:
+#             env.close()
             observation = deepcopy(env.reset())
             agent.reset(observation)
 
@@ -55,7 +57,7 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
 #         # [optional] evaluate
 #         if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
 #             policy = lambda x: agent.select_action(x, decay_epsilon=False)
-#             validate_reward = evaluate(env, policy, debug=False, visualize=False)
+#             validate_reward = evaluate(env, policy, debug=False, visualize=True)
 #             if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
 
         # [optional] save intermideate model
@@ -106,7 +108,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--mode', default='train', type=str, help='support option: train/test')
     parser.add_argument('--goal', default='single', type=str, help='support option: single/multi')
-    parser.add_argument('--env', default='HalfCheetah-v2', type=str, help='open-ai gym environment')
+    parser.add_argument('--env', default='FetchReach-v1', type=str, help='open-ai gym environment')
     parser.add_argument('--hidden1', default=400, type=int, help='hidden num of first fully connect layer')
     parser.add_argument('--hidden2', default=300, type=int, help='hidden num of second fully connect layer')
     parser.add_argument('--arch_cr', default=[300,200], type=list, help='Critic Architecture')
@@ -146,16 +148,19 @@ if __name__ == "__main__":
 
 #     env = NormalizedEnv(gym.make(args.env))
     env = gym.make(args.env)
-    env = gym.wrappers.Monitor(env, './videos/' + args.env + '_' + args.name + '/',force=True)
+    env = gym.wrappers.Monitor(env, './videos/' + args.env + '_' + args.name + str(np.random.randint(20)) + '/',force=True)
+#     env = gym.wrappers.Monitor(env, './videos/' + args.env + '_' + args.name + '/',force=True)
 
     if args.seed > 0:
         np.random.seed(args.seed)
         env.seed(args.seed)
 
-    nb_states = env.observation_space.shape[0]
+    nb_states = env.observation_space['observation'].shape[0]
+    nb_goals = env.observation_space['desired_goal'].shape[0]
     nb_actions = env.action_space.shape[0]
 
-    agent = Option_critic(nb_states,nb_actions,6,args)
+    agent = Option_critic(nb_states,nb_actions,4,nb_goals,args)
+    agent.her = True
 #     agent = DDPG(nb_states, nb_actions, args)
 #     agent = DDPG(nb_states, nb_actions, args)
     evaluate = Evaluator(args.validate_episodes, 

@@ -5,11 +5,15 @@ import argparse
 from copy import deepcopy
 import torch
 import gym
+from gym import wrappers
+from time import time
 
 #from normalized_env import NormalizedEnv
 from evaluator import Evaluator
-# from ddpg import DDPG
-from agent import DDPG
+import ddpg
+import agent
+import agent_exp
+from agent_fm import DDPG_FM
 from util import *
 
 # gym.undo_logger_setup()
@@ -21,6 +25,13 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
     episode_reward = 0.
     observation = None
     while step < num_iterations:
+        
+        # [optional] evaluate
+        if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
+            policy = lambda x: agent.select_action(x, decay_epsilon=False)
+            validate_reward = evaluate(env, policy, debug=False, visualize=True)
+            if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
+                
         # reset if it is the start of episode
         if observation is None:
             observation = deepcopy(env.reset())
@@ -43,11 +54,11 @@ def train(num_iterations, agent, env,  evaluate, validate_steps, output, max_epi
         if step > args.warmup :
             agent.update_policy()
         
-        # [optional] evaluate
-        if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
-            policy = lambda x: agent.select_action(x, decay_epsilon=False)
-            validate_reward = evaluate(env, policy, debug=False, visualize=False)
-            if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
+#         # [optional] evaluate
+#         if evaluate is not None and validate_steps > 0 and step % validate_steps == 0:
+#             policy = lambda x: agent.select_action(x, decay_epsilon=False)
+#             validate_reward = evaluate(env, policy, debug=False, visualize=True)
+#             if debug: prYellow('[Evaluate] Step_{:07d}: mean_reward:{}'.format(step, validate_reward))
 
         # [optional] save intermideate model
         if step % int(num_iterations/3) == 0:
@@ -98,8 +109,10 @@ if __name__ == "__main__":
     parser.add_argument('--mode', default='train', type=str, help='support option: train/test')
     parser.add_argument('--goal', default='single', type=str, help='support option: single/multi')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
+    parser.add_argument('--alg', default='DDPG', type=str, help='algorithm to be used')
+    parser.add_argument('--note', default='no note', type=str, help='note for the records')
     parser.add_argument('--hidden1', default=400, type=int, help='hidden num of first fully connect layer')
-    parser.add_argument('--hidden2', default=300, type=int, help='hidden num of second fully connect layer')
+    parser.add_argument('--hidden2', default=200, type=int, help='hidden num of second fully connect layer')
     parser.add_argument('--arch_cr', default=[300,200], type=list, help='Critic Architecture')
     parser.add_argument('--arch_ac', default=[300,200], type=list, help='Actor Architecture')
     parser.add_argument('--lr_cr', default=0.001, type=float, help='learning rate')
@@ -133,21 +146,32 @@ if __name__ == "__main__":
     args.output = get_output_folder(args.output, args.env)
     if args.resume == 'default':
         args.resume = 'output/{}-run0'.format(args.env)
-
+    print(args.note)
 #     env = NormalizedEnv(gym.make(args.env))
     env = gym.make(args.env)
+#    env = wrappers.Monitor(env, './videos/' + args.env + 'testMountainCarmycode' + '/',force=True)
+
     if args.seed > 0:
         np.random.seed(args.seed)
         env.seed(args.seed)
 
     nb_states = env.observation_space.shape[0]
     nb_actions = env.action_space.shape[0]
-
-    agent = DDPG(nb_states, nb_actions, args)
-#     agent = DDPG(nb_states, nb_actions, args)
+  
+    if args.alg == 'DDPG':
+        print("DDPG is active")
+        agent = agent.DDPG(nb_states, nb_actions, args)
+    elif args.alg == 'Org':
+        print("Original DDPG is active")
+        agent = ddpg.DDPG(nb_states, nb_actions, args)  
+    elif args.alg == 'Exp':
+        print("Experimental code is active")
+        agent = agent_exp.DDPG(nb_states, nb_actions, args)          
+    else:
+        print("DDPG_FM is active")
+        agent = DDPG_FM(nb_states, nb_actions, args)
     evaluate = Evaluator(args.validate_episodes, 
         args.validate_steps, args.output, max_episode_length=args.max_episode_length)
-
     if args.mode == 'train':
         train(args.train_iter, agent, env, evaluate, 
             args.validate_steps, args.output, max_episode_length=args.max_episode_length, debug=args.debug)

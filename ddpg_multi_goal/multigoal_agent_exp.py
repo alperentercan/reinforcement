@@ -9,8 +9,10 @@ from util import *
 # from util import hard_update
 from random_process import OrnsteinUhlenbeckProcess
 # from memory import SequentialMemory
-from new_models_multi import (Actor, Critic)
+# from model import (Actor, Critic)
 criterion = nn.MSELoss()
+from new_models_multi import (Actor, Critic_Fm)
+
 
 class Agent():
     def __init__(self,discount):
@@ -33,36 +35,6 @@ class Agent():
 class DDPG(object):
     def __init__(self,nb_states,nb_actions,nb_goal,args,her=True):
         
-# #         super().__init__(args.discount)
-#         self.discount = args.discount
-#         #Functions
-#         self.loss_func = torch.nn.MSELoss()
-        
-#         #Hyper Parameters
-# #         self.epsilon = 0.3
-#         self.tau = args.tau # 1-stability
-#         self.replay_buffer_size = args.rbsize
-#         self.minibatch_size_for_replay = args.bsize
-#         self.lr_critic = args.lr_cr
-#         self.lr_actor = args.lr_ac
-        
-#         #Network_parameters
-#         ah1 = 400
-#         ah2 = 300
-#         ch1 = 400
-#         ch2 = 300
-        
-#         #Env parameters lookup
-#         self.obs_size = obs_size
-#         self.action_size =  action_size
-#         self.goal_size = 0
-#         self.action_space_range = action_range
-        
-#         # Other parameters
-#         n_inputs_critic = obs_size + action_size #+ goal_size
-#         n_inputs_actor = obs_size # + goal_size
-#         n_outputs_actor = action_size
-
 
         if args.seed > 0:
             self.seed(args.seed)
@@ -82,55 +54,16 @@ class DDPG(object):
         n_inputs_actor = nb_states  + nb_goal
         n_outputs_actor = nb_actions
         print('n_inputs_actor :',n_inputs_actor)
-#         self.critic = torch.nn.Sequential(
-#         torch.nn.Linear(n_inputs_critic, args.hidden1),
-#         torch.nn.ReLU(),
-#         torch.nn.Linear(args.hidden1, args.hidden2),
-#         torch.nn.ReLU(),       
-#         torch.nn.Linear(args.hidden2, 1))
-
-#         self.actor = torch.nn.Sequential(
-#         torch.nn.Linear(n_inputs_actor, args.hidden1),
-#         torch.nn.ReLU(),
-#         torch.nn.Linear(args.hidden1,args.hidden2),
-#         torch.nn.ReLU(),       
-#         torch.nn.Linear(args.hidden2, n_outputs_actor),
-#         torch.nn.Tanh())
-
-
-#         ### Target Networks
-#         self.critic_target = torch.nn.Sequential(
-#         torch.nn.Linear(n_inputs_critic, args.hidden1),
-#         torch.nn.ReLU(),
-#         torch.nn.Linear(args.hidden1, args.hidden2),
-#         torch.nn.ReLU(),       
-#         torch.nn.Linear(args.hidden2, 1))
-
-#         self.actor_target = torch.nn.Sequential(
-#         torch.nn.Linear(n_inputs_actor, args.hidden1),
-#         torch.nn.ReLU(),
-#         torch.nn.Linear(args.hidden1, args.hidden2),
-#         torch.nn.ReLU(),       
-#         torch.nn.Linear(args.hidden2, n_outputs_actor),
-#         torch.nn.Tanh())
         
-        self.actor = Actor(self.nb_states, self.nb_actions, self.nb_goals, **net_cfg)
-        self.actor_target = Actor(self.nb_states, self.nb_actions, self.nb_goals, **net_cfg)
+        self.actor = Actor(self.nb_states, self.nb_actions, nb_goal, **net_cfg)
+        self.actor_target = Actor(self.nb_states, self.nb_actions,nb_goal, **net_cfg)
         self.actor_optim  = Adam(self.actor.parameters(), lr=args.prate)
 
-        self.critic = Critic(self.nb_states, self.nb_actions, self.nb_goals, **net_cfg)
-        self.critic_target = Critic(self.nb_states, self.nb_actions, self.nb_goals, **net_cfg)
+        self.critic = Critic_Fm(self.nb_states, self.nb_actions, nb_goal, **net_cfg)
+        self.critic_target = Critic_Fm(self.nb_states, self.nb_actions,nb_goal, **net_cfg)
         self.critic_optim  = Adam(self.critic.parameters(), lr=args.rate)
-
-    
-    # Initialize target network weights to behavior   
-#         for i in [0,2,4]:
-#             self.critic_target[i].weight.data = self.critic[i].weight.data.clone()
-#         for i in [0,2,4]:
-#             self.actor_target[i].weight.data = self.actor[i].weight.data.clone()
-#         critic_target.zero_grad()
-#         actor_target.zero_grad()
-         
+        
+          
         hard_update(self.actor_target, self.actor) # Make sure target is with the same weight
         hard_update(self.critic_target, self.critic)
         self.buffer = Replay_buffer(args.rmsize,self.nb_states,self.nb_actions,self.nb_goals)
@@ -152,6 +85,11 @@ class DDPG(object):
         self.a_t = None # Most recent action
         self.new_episode = False
         self.is_training = True
+        self.mean_td_error = 1
+        self.mean_model_error = 1
+        self.update_count = 0
+        self.model_error_coef = 1
+        self.model_error_coef_decay = 1/(50*1000*2)
 
         # 
 #         if USE_CUDA: self.cuda()
@@ -159,6 +97,7 @@ class DDPG(object):
   
     def select_action(self, s_t, decay_epsilon=True):
         if not self.is_training or np.random.uniform() > 0.2:
+#             print('Not random action')
             action = to_numpy(
                 self.actor(torch.cat([to_tensor(np.array([s_t['observation']])),
                                       to_tensor(np.array([s_t['desired_goal']]))],dim=1))).squeeze(0)
@@ -166,6 +105,7 @@ class DDPG(object):
     #                                   s_t['desired_goal']],dim=1)).squeeze(0)
             action += self.is_training*max(self.epsilon, 0)*self.random_process.sample()
         else:
+#             print('Random action')
             action = self.random_action()
         action = np.clip(action, -1., 1.)
 
@@ -220,49 +160,49 @@ class DDPG(object):
 #         next_state_batch, terminal_batch = self.memory.sample_and_split(self.batch_size)
         state_batch, action_batch, reward_batch, \
         next_state_batch, terminal_batch,goal_batch = self.buffer.sample_split_batch(self.batch_size)
-        
-#         state_batch = np.array(state_batch)
-#         action_batch = np.array(action_batch)
-#         reward_batch = np.array(reward_batch)
-#         next_state_batch = np.array(next_state_batch)
-#         terminal_batch = np.array(terminal_batch)
 
 
-#         state_batch = torch.tensor(state_batch,dtype=torch.float32)
-#         action_batch = torch.tensor(action_batch,dtype=torch.float32)
-#         reward_batch = torch.tensor(reward_batch,dtype=torch.float32)
-#         next_state_batch = torch.tensor(next_state_batch,dtype=torch.float32)
-#         terminal_batch = torch.tensor(terminal_batch,dtype=torch.float32)
-
-        state_batch = state_batch.clone().detach()#torch.tensor(state_batch,dtype=torch.float32)
-        action_batch = action_batch.clone().detach()#torch.tensor(action_batch,dtype=torch.float32)
-        reward_batch = reward_batch.clone().detach()#torch.tensor(reward_batch,dtype=torch.float32)
-        next_state_batch = next_state_batch.clone().detach()#torch.tensor(next_state_batch,dtype=torch.float32)
-        terminal_batch = terminal_batch.clone().detach()#torch.tensor(terminal_batch,dtype=torch.float32)
+        state_batch = state_batch.clone().detach()
+        action_batch = action_batch.clone().detach()
+        reward_batch = reward_batch.clone().detach()
+        next_state_batch = next_state_batch.clone().detach()
+        terminal_batch = terminal_batch.clone().detach()
         goal_batch = goal_batch.clone().detach()
 #         bdc = np.abs(bd-1)
         with torch.no_grad():
             target_critic_input = torch.cat([next_state_batch,
                                              self.actor_target(torch.cat([next_state_batch,goal_batch],dim=1)),
                                              goal_batch],dim=1)#*self.action_space_range
-            Z = self.critic_target(target_critic_input)
-            intermediary = self.discount*terminal_batch*Z
+            Zq,Zs1 = self.critic_target(target_critic_input)
+            intermediary = self.discount*terminal_batch*Zq
     #         print(torch.cat([intermediary,Z],1))
 
     #         print(Z)
     #         print(intermediary)
-            Y = reward_batch + intermediary
+            Yq = reward_batch + intermediary
         # Update Critic
         self.critic.zero_grad()
-        pred = self.critic(torch.cat([state_batch,action_batch,goal_batch],dim=1))
-        loss_critic = criterion(pred,Y)
-        loss_critic.backward()
+        pred_q,pred_s = self.critic(torch.cat([state_batch,action_batch,goal_batch],dim=1))
+#         loss_critic = criterion(predq,Y)
+                
+        loss_critic_td = criterion(pred_q,Yq)/self.mean_td_error
+        loss_critic_model = criterion(pred_s,Zs1)/self.mean_model_error
+#         if self.update_count%25 == 0:
+#             print(f'Mean TD Error : {self.mean_td_error}, mean Model Error {self.mean_model_error}')
+        torch.autograd.backward([loss_critic_td,self.model_error_coef*loss_critic_model])
+
+        self.mean_td_error = self.mean_td_error + (loss_critic_td.detach()-self.mean_td_error)/(self.update_count+1)
+        self.mean_model_error = self.mean_model_error + (loss_critic_model.detach()-self.mean_model_error)/(self.update_count+1)
+        self.update_count =  self.update_count + 1
+        self.model_error_coef -= self.model_error_coef_decay
+
+#         loss_critic.backward()
         self.critic_optim.step()
 
          # Update Actor
         self.actor.zero_grad()
         actor_loss = -self.critic(torch.cat([state_batch,
-                                             self.actor(torch.cat([state_batch,goal_batch],dim=1)),goal_batch],dim=1)).mean()
+                                             self.actor(torch.cat([state_batch,goal_batch],dim=1)),goal_batch],dim=1))[0].mean()
         actor_loss.backward()             
         self.actor_optim.step()  
         self.soft_update()
@@ -310,7 +250,6 @@ class DDPG(object):
     def soft_update(self):
         self.critic_target.soft_update(self.critic,0.001)
         self.actor_target.soft_update(self.actor,0.001)
-
 
 #     def soft_update(self):      
 #         #Update target networks          
