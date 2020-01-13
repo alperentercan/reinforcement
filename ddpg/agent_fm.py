@@ -18,8 +18,7 @@ criterion = nn.MSELoss()
 class DDPG_FM(DDPG):
     
     def __init__(self,nb_states,nb_actions,args):
-        if args.seed > 0:
-            self.seed(args.seed)
+
 
         self.nb_states = nb_states
         self.nb_actions= nb_actions
@@ -35,22 +34,6 @@ class DDPG_FM(DDPG):
         n_inputs_actor = nb_states # + goal_size
         n_outputs_actor = nb_actions
         
-#         self.critic = Critic_Fm(nb_states,nb_actions)
-#         self.critic = torch.nn.Sequential(
-#         torch.nn.Linear(n_inputs_critic, args.hidden1),
-#         torch.nn.ReLU(),
-#         torch.nn.Linear(args.hidden1, args.hidden2),
-#         torch.nn.ReLU(),       
-#         torch.nn.Linear(args.hidden2, 1))
-
-
-#         self.actor = torch.nn.Sequential(
-#         torch.nn.Linear(n_inputs_actor, args.hidden1),
-#         torch.nn.ReLU(),
-#         torch.nn.Linear(args.hidden1,args.hidden2),
-#         torch.nn.ReLU(),       
-#         torch.nn.Linear(args.hidden2, n_outputs_actor),
-#         torch.nn.Tanh())
 
         self.actor = Actor(self.nb_states, self.nb_actions, **net_cfg)
         self.actor_target = Actor(self.nb_states, self.nb_actions, **net_cfg)
@@ -59,26 +42,6 @@ class DDPG_FM(DDPG):
         self.critic = Critic_Fm(self.nb_states, self.nb_actions, **net_cfg)
         self.critic_target = Critic_Fm(self.nb_states, self.nb_actions, **net_cfg)
         self.critic_optim  = Adam(self.critic.parameters(), lr=args.rate)
-
-#         ### Target Networks
-#         self.critic_target = Critic_Fm(nb_states,nb_actions)
-#         self.critic_target = torch.nn.Sequential(
-#         torch.nn.Linear(n_inputs_critic, args.hidden1),
-#         torch.nn.ReLU(),
-#         torch.nn.Linear(args.hidden1, args.hidden2),
-#         torch.nn.ReLU(),       
-#         torch.nn.Linear(args.hidden2, 1))
-#           self.actor_target = Actor()
-#         self.actor_target = torch.nn.Sequential(
-#         torch.nn.Linear(n_inputs_actor, args.hidden1),
-#         torch.nn.ReLU(),
-#         torch.nn.Linear(args.hidden1, args.hidden2),
-#         torch.nn.ReLU(),       
-#         torch.nn.Linear(args.hidden2, n_outputs_actor),
-#         torch.nn.Tanh())
-
-#         self.actor_optim  = Adam(self.actor.parameters(), lr=args.prate)
-#         self.critic_optim  = Adam(self.critic.parameters(), lr=args.rate)
 
         hard_update(self.actor_target, self.actor) # Make sure target is with the same weight
         hard_update(self.critic_target, self.critic)
@@ -162,17 +125,6 @@ class DDPG_FM(DDPG):
         self.actor_target.soft_update(self.actor,0.001)
 
 
-        
-#     def soft_update(self):      
-#         #Update target networks          
-#         with torch.no_grad():
-#             for i in [0,2,4]:
-#                 self.critic_target[i].weight.data = (self.tau*self.critic[i].weight.data.clone() + 
-#                                                      (1-self.tau) *self.critic_target[i].weight.data.clone())
-#             for i in [0,2,4]:
-#                 self.actor_target[i].weight.data = (self.tau*self.actor[i].weight.data.clone() + 
-#                                                     (1-self.tau)*self.actor_target[i].weight.data.clone())        
-        
         
     def load_weights(self, output):
         if output is None: return

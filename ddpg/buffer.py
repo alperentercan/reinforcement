@@ -38,8 +38,6 @@ class Replay_buffer():
         obs_new_batch = self.replay_buffer[batch_ind, -self.goal_size-1-self.obs_size:-self.goal_size -1]#.reshape(-1,1)
         done_batch = self.replay_buffer[batch_ind,-self.goal_size -1:-self.goal_size].reshape(-1,1)
         goal_batch = self.replay_buffer[batch_ind,-self.goal_size:]
-#         print(self.replay_buffer[self.buff_curr_size-1,:])
-#         print(goal_batch[self.buff_curr_size-1,:])
         if self.goal_size > 0:
             return obs_batch,act_batch,reward_batch,obs_new_batch,done_batch,goal_batch 
         else:

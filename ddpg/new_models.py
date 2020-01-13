@@ -81,12 +81,3 @@ class Critic_Fm(torch.nn.Module):
             )
         
         
-        
-        
-#         print("Target Parameters")
-#         for param in self.parameters():
-#             print(param.shape)
-#         print("source.parameters()")
-#         for param in source.parameters():
-#             print(param.shape)            
-    
