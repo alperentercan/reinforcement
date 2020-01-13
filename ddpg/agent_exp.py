@@ -5,11 +5,12 @@ from torch.optim import Adam
 import numpy as np
 from buffer_singlegoal import Replay_buffer
 from util import *
+
 # from util import to_tensor
 # from util import hard_update
 from random_process import OrnsteinUhlenbeckProcess
 # from memory import SequentialMemory
-# from model import (Actor, Critic)
+from model import (Actor, Critic)
 criterion = nn.MSELoss()
 
 class Agent():
@@ -95,37 +96,14 @@ class DDPG(object):
         n_inputs_actor = nb_states # + goal_size
         n_outputs_actor = nb_actions
         
-        self.critic = torch.nn.Sequential(
-        torch.nn.Linear(n_inputs_critic, args.hidden1),
-        torch.nn.ReLU(),
-        torch.nn.Linear(args.hidden1, args.hidden2),
-        torch.nn.ReLU(),       
-        torch.nn.Linear(args.hidden2, 1))
+        self.actor = Actor(self.nb_states, self.nb_actions, **net_cfg)
+        self.actor_target = Actor(self.nb_states, self.nb_actions, **net_cfg)
+        self.actor_optim  = Adam(self.actor.parameters(), lr=args.prate)
 
-        self.actor = torch.nn.Sequential(
-        torch.nn.Linear(n_inputs_actor, args.hidden1),
-        torch.nn.ReLU(),
-        torch.nn.Linear(args.hidden1,args.hidden2),
-        torch.nn.ReLU(),       
-        torch.nn.Linear(args.hidden2, n_outputs_actor),
-        torch.nn.Tanh())
+        self.critic = Critic(self.nb_states, self.nb_actions, **net_cfg)
+        self.critic_target = Critic(self.nb_states, self.nb_actions, **net_cfg)
+        self.critic_optim  = Adam(self.critic.parameters(), lr=args.rate)
 
-
-        ### Target Networks
-        self.critic_target = torch.nn.Sequential(
-        torch.nn.Linear(n_inputs_critic, args.hidden1),
-        torch.nn.ReLU(),
-        torch.nn.Linear(args.hidden1, args.hidden2),
-        torch.nn.ReLU(),       
-        torch.nn.Linear(args.hidden2, 1))
-
-        self.actor_target = torch.nn.Sequential(
-        torch.nn.Linear(n_inputs_actor, args.hidden1),
-        torch.nn.ReLU(),
-        torch.nn.Linear(args.hidden1, args.hidden2),
-        torch.nn.ReLU(),       
-        torch.nn.Linear(args.hidden2, n_outputs_actor),
-        torch.nn.Tanh())
         
 #         self.actor = Actor(self.nb_states, self.nb_actions, **net_cfg)
 #         self.actor_target = Actor(self.nb_states, self.nb_actions, **net_cfg)
@@ -273,15 +251,15 @@ class DDPG(object):
 
 #         bdc = np.abs(bd-1)
         with torch.no_grad():
-            target_critic_input = torch.cat([next_state_batch, self.actor_target(next_state_batch)],dim=1)#*self.action_space_range
-            Z = self.critic_target(target_critic_input)
+#             target_critic_input = torch.cat([next_state_batch, self.actor_target(next_state_batch)],dim=1)#*self.action_space_range
+            Z = self.critic_target([next_state_batch,self.actor_target(next_state_batch)])
 
             intermediary = self.discount*terminal_batch*Z
 
             Y = reward_batch + intermediary
         # Update Critic
         self.critic.zero_grad()
-        pred = self.critic(torch.cat([state_batch,action_batch],dim=1))
+        pred = self.critic([state_batch,action_batch])
         loss_critic = criterion(pred,Y)
         loss_critic.backward()
         self.critic_optim.step()
@@ -289,7 +267,7 @@ class DDPG(object):
         self.critic.zero_grad()
          # Update Actor
         self.actor.zero_grad()
-        actor_loss = -self.critic(torch.cat([state_batch,self.actor(state_batch)],dim=1)).mean()#*self.action_space_range
+        actor_loss = -self.critic([state_batch,self.actor(state_batch)]).mean()#*self.action_space_range
         actor_loss.backward()             
         self.actor_optim.step()  
         
@@ -329,21 +307,26 @@ class DDPG(object):
 #         soft_update(self.actor_target, self.actor, self.tau)
 #         soft_update(self.critic_target, self.critic, self.tau)
         self.soft_update()
-    
+        
+
+    def soft_update(self):
+        self.critic_target.soft_update(self.critic,0.001)
+        self.actor_target.soft_update(self.actor,0.001)
+
     def reset(self, obs):
         self.s_t = obs
         self.random_process.reset_states()
 
 
-    def soft_update(self):      
-        #Update target networks          
-        with torch.no_grad():
-            for i in [0,2,4]:
-                self.critic_target[i].weight.data = (self.tau*self.critic[i].weight.data.clone() + 
-                                                     (1-self.tau) *self.critic_target[i].weight.data.clone())
-            for i in [0,2,4]:
-                self.actor_target[i].weight.data = (self.tau*self.actor[i].weight.data.clone() + 
-                                                    (1-self.tau)*self.actor_target[i].weight.data.clone())
+#     def soft_update(self):      
+#         #Update target networks          
+#         with torch.no_grad():
+#             for i in [0,2,4]:
+#                 self.critic_target[i].weight.data = (self.tau*self.critic[i].weight.data.clone() + 
+#                                                      (1-self.tau) *self.critic_target[i].weight.data.clone())
+#             for i in [0,2,4]:
+#                 self.actor_target[i].weight.data = (self.tau*self.actor[i].weight.data.clone() + 
+#                                                     (1-self.tau)*self.actor_target[i].weight.data.clone())
                 
     def load_weights(self, output):
         if output is None: return
